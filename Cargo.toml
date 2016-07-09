@@ -1,0 +1,9 @@
+[package]
+name = "q3hi"
+version = "0.1.0"
+authors = ["robo9k <robo@9k.lv>"]
+
+[dependencies]
+libc = "0.2.13"
+log = "0.3.6"
+env_logger = "0.3.3"
