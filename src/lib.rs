@@ -9,11 +9,53 @@ extern crate env_logger;
 use std::ffi::CString;
 
 
+/// syscallptr from g_syscalls.c
 pub type Syscall = extern "C" fn(arg: libc::intptr_t, ...) -> libc::intptr_t;
 
 static mut SYSCALL: Option<Syscall> = None;
 
+/// gameExport_t from g_public.h
+enum GameExport {
+    Init = 0,
+    Shutdown = 1,
+}
 
+/// gameImport_t from g_public.h
+enum GameImport {
+    Error = 1,
+}
+
+/// trap_Error() from g_syscalls.c
+fn error<T>(text: T)
+    where T: Into<Vec<u8>>
+{
+    unsafe {
+        if let Some(syscall) = SYSCALL {
+            let msg = CString::new(text).unwrap();
+            syscall(GameImport::Error as libc::intptr_t, msg.as_ptr());
+        }
+    }
+
+    unreachable!();
+}
+
+/// G_InitGame() from g_main.c
+fn init_game(level_time: i32, random_seed: i32, restart: bool) {
+    debug!("init_game: level_time {}, random_seed {}, restart {}",
+           level_time,
+           random_seed,
+           restart);
+
+    error("Hello from Rust!");
+}
+
+
+/// G_ShutdownGame() from g_main.c
+fn shutdown_game(restart: bool) {
+    debug!("shutdown_game: restart {}", restart);
+}
+
+/// vmMain() from g_main.c
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn vmMain(command: libc::c_int,
@@ -47,22 +89,27 @@ pub extern "C" fn vmMain(command: libc::c_int,
            arg10,
            arg11);
 
-    unsafe {
-        if let Some(syscall) = SYSCALL {
-            let msg = CString::new("Hello from Rust!").unwrap();
-            syscall(1, msg.as_ptr());
+    match command {
+        command if command == GameExport::Init as libc::c_int => {
+            init_game(arg0 as i32, arg1 as i32, 0 != arg2);
+            return 0;
         }
+        command if command == GameExport::Shutdown as libc::c_int => {
+            shutdown_game(0 != arg0);
+            return 0;
+        }
+        _ => panic!("Not implemented"),
     }
-
-    panic!("almost there..");
 }
 
+/// dllEntry() from g_syscalls.c
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn dllEntry(syscall: Syscall) {
     env_logger::init().unwrap();
 
     debug!("dllEntry: syscall {:p}", syscall as *const ());
+
     unsafe {
         SYSCALL = Some(syscall);
     }
