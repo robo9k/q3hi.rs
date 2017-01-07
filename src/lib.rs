@@ -1,5 +1,3 @@
-#![crate_type = "cdylib"]
-
 extern crate libc;
 
 #[macro_use]
